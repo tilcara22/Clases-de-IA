@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+body {
+  background-color: #f0f9ff; /* sky-50 from design */
+  font-family: var(--font-sans);
+}
+
+@layer utilities {
+  /* High quality design constraints */
+  .section-title {
+    font-family: var(--font-sans);
+    letter-spacing: -0.025em;
+  }
+  
+  .vibrant-shadow-indigo {
+    box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.15), 0 8px 10px -6px rgba(99, 102, 241, 0.15);
+  }
+
+  .vibrant-shadow-pink {
+    box-shadow: 0 10px 25px -5px rgba(236, 72, 153, 0.15), 0 8px 10px -6px rgba(236, 72, 153, 0.15);
+  }
+
+  .vibrant-shadow-blue {
+    box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.15), 0 8px 10px -6px rgba(59, 130, 246, 0.15);
+  }
+}
+
