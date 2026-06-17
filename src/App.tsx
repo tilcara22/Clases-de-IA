@@ -5,10 +5,11 @@ import KidsSurvey from "./components/KidsSurvey";
 import TeensSurvey from "./components/TeensSurvey";
 import TeachersSurvey from "./components/TeachersSurvey";
 import AdminDashboard from "./components/AdminDashboard";
+import LiveInteraction from "./components/LiveInteraction";
 import { KidsPayload, TeensPayload, TeachersPayload } from "./types";
 
 export default function App() {
-  const [role, setRole] = useState<"kids" | "teens" | "teachers" | "admin" | null>(null);
+  const [role, setRole] = useState<"kids" | "teens" | "teachers" | "admin" | "live" | null>(null);
   const [pin, setPin] = useState("");
   const [appUrl, setAppUrl] = useState("");
 
@@ -26,10 +27,14 @@ export default function App() {
         kids: "KIDS10",
         teens: "TEENS13",
         teachers: "DOCENTER7",
-        admin: "ORGANIZADOR99"
+        admin: "ORGANIZADOR99",
+        live: "1234"
       };
 
-      if (validPins[roleParam] === pinParam) {
+      if (roleParam === "live") {
+        setRole("live");
+        setPin("1234");
+      } else if (validPins[roleParam] === pinParam) {
         setRole(roleParam as any);
         setPin(pinParam);
       } else {
@@ -38,7 +43,7 @@ export default function App() {
     }
   }, []);
 
-  const handleSelectRole = (selectedRole: "kids" | "teens" | "teachers" | "admin", enteredPin: string) => {
+  const handleSelectRole = (selectedRole: "kids" | "teens" | "teachers" | "admin" | "live", enteredPin: string) => {
     setRole(selectedRole);
     setPin(enteredPin);
     
@@ -106,7 +111,7 @@ export default function App() {
             {role && (
               <>
                 <span className="hidden border-2 border-indigo-100 sm:inline-flex items-center gap-1 text-[10px] bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full font-black uppercase tracking-wider">
-                  {role === "kids" ? "Primaria (10-12)" : role === "teens" ? "Secundaria (13-17)" : role === "teachers" ? "Director/Docente" : "Administrador"}
+                  {role === "kids" ? "Primaria (10-12)" : role === "teens" ? "Secundaria (13-17)" : role === "teachers" ? "Director/Docente" : role === "live" ? "Interacción en Vivo" : "Administrador"}
                 </span>
                 <button
                   onClick={handleLogout}
@@ -157,10 +162,18 @@ export default function App() {
                   onBack={handleLogout}
                 />
               );
+            case "live":
+              return (
+                <LiveInteraction
+                  onBack={handleLogout}
+                />
+              );
             default:
               return <RoleSelector onSelectRole={handleSelectRole} appUrl={appUrl} />;
           }
         })()}
+
+
       </main>
 
       {/* Footer detailing architectural centralization with Vibrant Indigo styling */}
