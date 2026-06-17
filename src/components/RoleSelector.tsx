@@ -1,14 +1,14 @@
 import React, { useState } from "react";
-import { Sparkles, GraduationCap, School, Settings, HelpCircle, Copy, Check, QrCode, ClipboardList } from "lucide-react";
+import { Sparkles, GraduationCap, School, Settings, HelpCircle, Copy, Check, QrCode, ClipboardList, MessageSquare } from "lucide-react";
 import { motion } from "motion/react";
 
 interface RoleSelectorProps {
-  onSelectRole: (role: "kids" | "teens" | "teachers" | "admin", pin: string) => void;
+  onSelectRole: (role: "kids" | "teens" | "teachers" | "admin" | "live", pin: string) => void;
   appUrl: string;
 }
 
 export default function RoleSelector({ onSelectRole, appUrl }: RoleSelectorProps) {
-  const [selectedRole, setSelectedRole] = useState<"kids" | "teens" | "teachers" | "admin" | null>(null);
+  const [selectedRole, setSelectedRole] = useState<"kids" | "teens" | "teachers" | "admin" | "live" | null>(null);
   const [pinValue, setPinValue] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
@@ -41,6 +41,15 @@ export default function RoleSelector({ onSelectRole, appUrl }: RoleSelectorProps
       expectedPin: "DOCENTER7",
       bg: "bg-teal-50/50"
     },
+    live: {
+      title: "Consignas en Vivo",
+      description: "Respuestas directas y anónimas a preguntas orales hechas por el profesor en clase.",
+      icon: MessageSquare,
+      color: "from-fuchsia-500 to-pink-600",
+      accent: "text-pink-600",
+      expectedPin: "1234",
+      bg: "bg-fuchsia-10"
+    },
     admin: {
       title: "Organizador / Administrador",
       description: "Panel centralizado para graficar respuestas y diseñar planes de clase con IA.",
@@ -57,6 +66,19 @@ export default function RoleSelector({ onSelectRole, appUrl }: RoleSelectorProps
     if (!selectedRole) return;
     
     const config = rolesConfig[selectedRole];
+    
+    if (selectedRole === "live") {
+      const enteredValue = pinValue.trim();
+      // Allow entered empty string or 1234 or *1234*
+      if (enteredValue === "" || enteredValue === "1234" || enteredValue === "*1234*") {
+        setErrorMsg("");
+        onSelectRole("live", "1234");
+      } else {
+        setErrorMsg("Ingresa '1234' o deja el casillero completamente vacío para ingresar.");
+      }
+      return;
+    }
+
     if (pinValue.trim().toUpperCase() === config.expectedPin) {
       setErrorMsg("");
       onSelectRole(selectedRole, pinValue.trim().toUpperCase());
@@ -141,7 +163,7 @@ export default function RoleSelector({ onSelectRole, appUrl }: RoleSelectorProps
                     <div className="flex-1">
                       <div className="flex flex-wrap justify-between items-center gap-1">
                         <h3 className="font-black text-indigo-950 text-md tracking-tight">
-                          {roleKey === "kids" ? "Exploradores IA" : roleKey === "teens" ? "Creadores IA" : roleKey === "teachers" ? "Panel Docente" : "Panel Organizador"}
+                          {roleKey === "kids" ? "Exploradores IA" : roleKey === "teens" ? "Creadores IA" : roleKey === "teachers" ? "Panel Docente" : roleKey === "live" ? "Interacción en Vivo" : "Panel Organizador"}
                         </h3>
                         <span className="text-3xs font-black bg-indigo-50 px-2.5 py-0.5 rounded-full text-indigo-500 border border-indigo-100">
                           {conf.title}
@@ -172,7 +194,11 @@ export default function RoleSelector({ onSelectRole, appUrl }: RoleSelectorProps
                 Autenticación Requerida
               </h3>
               <p className="text-slate-500 text-xs leading-relaxed mb-6 font-medium">
-                Ingresa el código PIN provisto por el organizador para acceder a la sección <strong className={`${rolesConfig[selectedRole].accent} font-black`}>{rolesConfig[selectedRole].title}</strong>.
+                {selectedRole === "live" ? (
+                  "Ingresa el PIN '1234' o déjalo vacío para participar directamente."
+                ) : (
+                  `Ingresa el código PIN provisto por el organizador para acceder a la sección ${rolesConfig[selectedRole].title}.`
+                )}
               </p>
 
               <form onSubmit={handleAccess} className="space-y-5">
@@ -182,10 +208,10 @@ export default function RoleSelector({ onSelectRole, appUrl }: RoleSelectorProps
                   </label>
                   <input
                     type="text"
-                    required
+                    required={selectedRole !== "live"}
                     value={pinValue}
                     onChange={(e) => setPinValue(e.target.value)}
-                    placeholder={`Ej: ${rolesConfig[selectedRole].expectedPin}`}
+                    placeholder={selectedRole === "live" ? "Opcional (deja vacío o escribe 1234)" : `Ej: ${rolesConfig[selectedRole].expectedPin}`}
                     className="w-full text-center tracking-widest font-mono text-lg py-3 px-4 rounded-2xl border-2 border-indigo-100 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 placeholder:tracking-normal placeholder:font-sans placeholder:text-sm"
                   />
                 </div>
