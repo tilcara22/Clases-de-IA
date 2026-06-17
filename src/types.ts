@@ -81,3 +81,16 @@ export interface GeminiPlanResponse {
   planKids: PlanClase;
   planTeens: PlanClase;
 }
+
+export interface LiveResponse {
+  id: string;
+  name: string;
+  role: string;
+  answer: string;
+  timestamp: string;
+}
+
+export interface LiveState {
+  activeQuestion: string;
+  responses: LiveResponse[];
+}
