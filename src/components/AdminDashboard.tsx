@@ -3,7 +3,7 @@ import {
   Users, Sparkles, GraduationCap, School, Brain, Calendar, Trash2, 
   RotateCcw, ArrowLeft, Loader2, BookOpen, AlertCircle, ArrowRight,
   MonitorPlay, CheckCircle, ChevronLeft, ChevronRight, HelpCircle, FileText,
-  Copy, Check
+  Copy, Check, BarChart3, PieChart, MessageSquare
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { SurveyResponse, GeminiPlanResponse, PlanClase, SlideDetalle } from "../types";
@@ -63,6 +63,87 @@ export default function AdminDashboard({ pin, appUrl, onBack }: AdminDashboardPr
   const [selectedPlanTab, setSelectedPlanTab] = useState<"kids" | "teens">("kids");
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
+  // Live Interaction States
+  const [liveState, setLiveState] = useState<{ activeQuestion: string; responses: any[] } | null>(null);
+  const [customQuestion, setCustomQuestion] = useState("");
+  const [clearResponsesOnLaunch, setClearResponsesOnLaunch] = useState(true);
+  const [updatingQuestion, setUpdatingQuestion] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [liveError, setLiveError] = useState("");
+
+  const fetchLiveState = async () => {
+    try {
+      const res = await fetch("/api/live");
+      if (res.ok) {
+        const data = await res.json();
+        setLiveState(data);
+      }
+    } catch (err) {
+      console.error("Error retrieving live state:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "liveControl") {
+      fetchLiveState();
+      const interval = setInterval(fetchLiveState, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab]);
+
+  const handleLaunchQuestion = async (questionText: string) => {
+    if (!questionText.trim()) return;
+    setUpdatingQuestion(true);
+    setLiveError("");
+    try {
+      const res = await fetch("/api/live/question", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "x-pin": pin
+        },
+        body: JSON.stringify({
+          activeQuestion: questionText.trim(),
+          clearResponses: clearResponsesOnLaunch
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLiveState(data.state);
+        setCustomQuestion("");
+      } else {
+        const data = await res.json();
+        setLiveError(data.error || "Código erróneo o error al actualizar.");
+      }
+    } catch (err: any) {
+      setLiveError(err.message || "Falla de red.");
+    } finally {
+      setUpdatingQuestion(false);
+    }
+  };
+
+  const handleClearLiveResponses = async () => {
+    setLiveError("");
+    try {
+      const res = await fetch("/api/live/responses", {
+        method: "DELETE",
+        headers: {
+          "x-pin": pin
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLiveState(data.state);
+        setConfirmClear(false);
+      } else {
+        const data = await res.json();
+        setLiveError(data.error || "No se pudo vaciar la sala.");
+      }
+    } catch (err: any) {
+      setLiveError(err.message || "Falla de red al limpiar la sala.");
+    }
+  };
+
   // Fetch responses from server
   const fetchResponses = async () => {
     setLoading(true);
@@ -83,11 +164,9 @@ export default function AdminDashboard({ pin, appUrl, onBack }: AdminDashboardPr
     fetchResponses();
   }, [pin]);
 
-  // Clean or Reset Database
-  const handleDatabaseAction = async (action: "clear" | "reset") => {
-    const confirmMsg = action === "clear" 
-      ? "¿Estás seguro de eliminar permanentemente TODAS las encuestas?" 
-      : "¿Estás seguro de reestablecer la base de datos con respuestas de ejemplo reales?";
+  // Clean Database
+  const handleDatabaseAction = async (action: "clear") => {
+    const confirmMsg = "¿Estás seguro de eliminar permanentemente TODAS las encuestas?";
     
     if (!window.confirm(confirmMsg)) return;
 
@@ -211,13 +290,6 @@ export default function AdminDashboard({ pin, appUrl, onBack }: AdminDashboardPr
         {/* Database Quick Actions */}
         <div className="flex flex-wrap gap-2.5">
           <button
-            onClick={() => handleDatabaseAction("reset")}
-            title="Reestablece datos de ejemplo realistas para pruebas rápidas"
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-white text-indigo-950 hover:bg-indigo-50 border-2 border-indigo-50 font-black text-xs rounded-2xl transition shadow-xl cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-pink-500 animate-spin" /> Reestablecer Ejemplo
-          </button>
-          <button
             onClick={() => handleDatabaseAction("clear")}
             className="flex items-center gap-1.5 px-4 py-2.5 bg-pink-50 text-pink-700 hover:bg-pink-100 border-2 border-pink-100 font-black text-xs rounded-2xl transition cursor-pointer"
           >
@@ -259,6 +331,18 @@ export default function AdminDashboard({ pin, appUrl, onBack }: AdminDashboardPr
               }`}
             >
               📂 Bandeja de Encuestas ({totalSubmissions})
+            </button>
+            <button
+              onClick={() => setActiveTab("liveControl")}
+              className={`pb-4 px-2 text-xs md:text-sm font-black transition-all border-b-4 relative shrink-0 cursor-pointer flex items-center gap-1.5 uppercase tracking-wider ${
+                activeTab === "liveControl" ? "text-indigo-650 border-indigo-600" : "text-slate-400 border-transparent hover:text-slate-705"
+              }`}
+            >
+              <span>💬</span> Control en Vivo {liveState && liveState.responses.length > 0 && (
+                <span className="bg-indigo-600 text-white rounded-full text-[10px] px-1.5 py-0.5 animate-pulse font-mono">
+                  {liveState.responses.length}
+                </span>
+              )}
             </button>
             <button
               onClick={() => {
@@ -806,6 +890,282 @@ export default function AdminDashboard({ pin, appUrl, onBack }: AdminDashboardPr
                   );
                 })()}
 
+              </motion.div>
+            )}
+            
+            {activeTab === "liveControl" && (
+              <motion.div
+                key="tab-live-control"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="space-y-6 text-left"
+              >
+                {/* Header Action Section */}
+                <div className="bg-white rounded-[32px] p-6 border-2 border-indigo-50 shadow-xl shadow-indigo-100/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div>
+                    <h3 className="text-lg font-black text-indigo-950 uppercase flex items-center gap-1.5">
+                      💬 Respuestas Orales y Lluvia de Ideas
+                    </h3>
+                    <p className="text-slate-500 text-xs mt-1 font-semibold">
+                      Haz las preguntas directamente de forma verbal al auditorio. Los alumnos responden al instante con un solo campo.
+                    </p>
+                  </div>
+                  <div className="flex flex-col md:items-end gap-2">
+                    {liveError && (
+                      <p className="text-rose-600 text-[11px] font-bold bg-rose-50 p-2 rounded-xl border border-rose-100 mb-1 max-w-xs text-right">
+                        ⚠️ {liveError}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-2.5">
+                      {confirmClear ? (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleClearLiveResponses}
+                            className="flex items-center gap-1.5 px-5 py-3 bg-rose-600 hover:bg-rose-750 text-white rounded-full text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-md"
+                          >
+                            <Trash2 className="w-4 h-4" /> ⚠️ ¿Estás seguro? Vaciar respuestas
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmClear(false)}
+                            className="px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full text-xs font-black uppercase tracking-wider transition cursor-pointer"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmClear(true)}
+                          className="flex items-center gap-1.5 px-5 py-3 bg-rose-50 border border-rose-100 hover:bg-rose-100 text-rose-700 rounded-full text-xs font-black uppercase tracking-wider transition cursor-pointer shadow-sm"
+                        >
+                          <Trash2 className="w-4 h-4" /> 🗑️ Vaciar Aula y Empezar Nueva
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Analytical Stats Panel */}
+                {(() => {
+                  const responsesList = liveState?.responses || [];
+                  const total = responsesList.length;
+
+                  // Group answers case-insensitively
+                  const counts: { [key: string]: { text: string; count: number } } = {};
+                  responsesList.forEach((resp: any) => {
+                    const text = (resp.answer || "").trim();
+                    if (!text) return;
+                    const key = text.toLowerCase();
+                    if (counts[key]) {
+                      counts[key].count += 1;
+                    } else {
+                      counts[key] = { text, count: 1 };
+                    }
+                  });
+
+                  const unique = Object.keys(counts).length;
+                  const duplicated = Object.values(counts).filter(x => x.count > 1).length;
+
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/50 rounded-2xl p-4 border border-indigo-100">
+                        <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest block">Total Recibidas</span>
+                        <div className="flex items-baseline gap-1.5 mt-1">
+                          <span className="text-2xl font-black text-indigo-950 font-mono">{total}</span>
+                          <span className="text-xs font-bold text-indigo-500">votos en vivo</span>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-2xl p-4 border border-purple-100">
+                        <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest block">Respuestas Únicas</span>
+                        <div className="flex items-baseline gap-1.5 mt-1">
+                          <span className="text-2xl font-black text-purple-950 font-mono">{unique}</span>
+                          <span className="text-xs font-bold text-purple-500">conceptos distintos</span>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-br from-pink-50 to-pink-100/50 rounded-2xl p-4 border border-pink-100">
+                        <span className="text-[10px] font-black text-pink-600 uppercase tracking-widest block">Coincidencias / Porcentajes</span>
+                        <div className="flex items-baseline gap-1.5 mt-1">
+                          <span className="text-2xl font-black text-pink-950 font-mono">{duplicated}</span>
+                          <span className="text-xs font-bold text-pink-500">términos repetidos</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="grid lg:grid-cols-12 gap-6 items-start">
+                  {/* Left Column: Real-time Response Streams */}
+                  <div className="lg:col-span-6 space-y-4">
+                    <div className="bg-white rounded-[32px] p-6 border-2 border-slate-50 shadow-xl shadow-slate-100/40 min-h-[440px] flex flex-col justify-between">
+                      <div>
+                        {/* Stream Header */}
+                        <div className="flex justify-between items-center border-b border-indigo-50 pb-4 mb-4 gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 bg-emerald-550 rounded-full animate-ping shrink-0" />
+                            <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                              💬 Listado de Aportes ({liveState?.responses.length || 0})
+                            </h4>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-mono font-bold uppercase">
+                            Autosync 3 seg
+                          </span>
+                        </div>
+
+                        {/* Stream answers list */}
+                        {!liveState || liveState.responses.length === 0 ? (
+                          <div className="text-center py-24 text-slate-400 space-y-3">
+                            <HelpCircle className="w-12 h-12 text-slate-300 mx-auto animate-bounce" />
+                            <p className="text-xs font-black uppercase tracking-wider">Esperando respuestas del auditorio...</p>
+                            <p className="text-[11px] text-slate-400 max-w-sm mx-auto font-medium leading-relaxed">
+                              Haz una pregunta oral y pide a tus alumnos que escriban su respuesta en su celular o laptop. Se actualizará aquí dinámicamente.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
+                            {liveState.responses.map((resp: any, i: number) => (
+                              <motion.div
+                                key={resp.id || i}
+                                initial={{ opacity: 0, scale: 0.95, x: -10 }}
+                                animate={{ opacity: 1, scale: 1, x: 0 }}
+                                className="rounded-2xl p-3.5 border border-slate-100 bg-slate-50 hover:bg-indigo-50/20 transition-all flex items-center justify-between gap-3 text-left"
+                              >
+                                <div className="flex-1">
+                                  <span className="text-3xs font-mono font-bold text-slate-400 block uppercase mb-0.5">Participación Anónima</span>
+                                  <p className="text-xs font-extrabold text-indigo-950 leading-relaxed">
+                                    "{resp.answer}"
+                                  </p>
+                                </div>
+                                <span className="text-[9px] bg-slate-100 text-slate-500 font-bold px-2 py-1 rounded-md block shrink-0 font-mono">
+                                  #{liveState.responses.length - i}
+                                </span>
+                              </motion.div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info instruction */}
+                      <p className="text-[10px] text-slate-400 font-semibold text-left border-t border-slate-100 pt-3 mt-4">
+                        💡 CONSEJO DIDÁCTICO: Utiliza este listado en tiempo real con los alumnos para debatir y corregir ideas erróneas de Inteligencia Artificial que surjan en la clase.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Custom Frequency & Percentage Chart */}
+                  <div className="lg:col-span-6 space-y-4">
+                    <div className="bg-white rounded-[32px] p-6 border-2 border-indigo-50 shadow-xl shadow-indigo-150/10 min-h-[440px] flex flex-col justify-between">
+                      <div>
+                        {/* Stream Header */}
+                        <div className="flex justify-between items-center border-b border-indigo-50 pb-4 mb-4 gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <BarChart3 className="w-4 h-4 text-purple-600" />
+                            <h4 className="text-xs font-black text-indigo-950 uppercase tracking-wider">
+                              📊 Gráfico de Porcentajes de Coincidencias
+                            </h4>
+                          </div>
+                        </div>
+
+                        {/* Chart Render Block */}
+                        {(() => {
+                          const responsesList = liveState?.responses || [];
+                          const total = responsesList.length;
+
+                          if (total === 0) {
+                            return (
+                              <div className="text-center py-24 text-slate-400 space-y-2.5">
+                                <PieChart className="w-12 h-12 text-slate-300 mx-auto" />
+                                <p className="text-xs font-black uppercase tracking-wider">Sin datos de gráfico</p>
+                                <p className="text-[11px] text-slate-405 max-w-xs mx-auto leading-relaxed">
+                                  En cuanto los participantes ingresen respuestas repetidas (por ejemplo, "ChatGPT", "robots"), se generarán barras de porcentaje inmediatamente.
+                                </p>
+                              </div>
+                            );
+                          }
+
+                          // Calculate frequencies
+                          const counts: { [key: string]: { text: string; count: number } } = {};
+                          responsesList.forEach((resp: any) => {
+                            const text = (resp.answer || "").trim();
+                            if (!text) return;
+                            const key = text.toLowerCase();
+                            if (counts[key]) {
+                              counts[key].count += 1;
+                            } else {
+                              counts[key] = { text, count: 1 };
+                            }
+                          });
+
+                          const groupedList = Object.values(counts)
+                            .map((item) => ({
+                              name: item.text,
+                              count: item.count,
+                              percentage: parseFloat(((item.count / total) * 100).toFixed(1)),
+                            }))
+                            .sort((a, b) => b.count - a.count);
+
+                          const hasDuplicatedAnswers = Object.values(counts).some(x => x.count > 1);
+
+                          return (
+                            <div className="space-y-4">
+                              {/* Small toggle notification badge */}
+                              {!hasDuplicatedAnswers && (
+                                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-[11px] text-slate-500 font-medium">
+                                  📌 <strong>Nota:</strong> Los alumnos han ingresado respuestas únicas por ahora. En cuanto dos o más respondan idéntico, verás resaltar su coincidencia aquí arriba.
+                                </div>
+                              )}
+
+                              <div className="space-y-3.5 max-h-[300px] overflow-y-auto pr-1">
+                                {groupedList.map((item, idx) => {
+                                  // Highlight duplicates with striking gradients
+                                  const isDuplicated = item.count > 1;
+                                  const barColor = isDuplicated 
+                                    ? "bg-gradient-to-r from-indigo-500 to-purple-600 shadow-md shadow-indigo-150-30" 
+                                    : "bg-slate-350";
+
+                                  return (
+                                    <div key={idx} className="space-y-1">
+                                      <div className="flex justify-between items-center text-xs">
+                                        <span className="font-extrabold text-slate-850 truncate max-w-[220px]">
+                                          "{item.name}"
+                                        </span>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                          {isDuplicated && (
+                                            <span className="text-[9px] bg-pink-100 text-pink-700 font-black px-1.5 py-0.5 rounded uppercase font-mono tracking-widest">
+                                              {item.count} Repeticiones
+                                            </span>
+                                          )}
+                                          <span className="font-black text-slate-900 font-mono text-right w-12">
+                                            {item.percentage}%
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                                        <motion.div
+                                          initial={{ width: 0 }}
+                                          animate={{ width: `${item.percentage}%` }}
+                                          transition={{ duration: 0.5, ease: "easeOut" }}
+                                          className={`h-full rounded-full ${barColor}`}
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100/50 mt-4">
+                        <p className="text-[10px] text-slate-400 font-semibold text-center leading-relaxed">
+                          La detección unifica automáticamente mayúsculas, minúsculas y espacios (ej: 'ChatGPT' y 'chatgpt' se cuentan juntos).
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
