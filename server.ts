@@ -13,6 +13,7 @@ dotenv.config(); // fallback to .env if .env.local is missing
 const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const DATA_FILE = path.join(process.cwd(), "responses.json");
+const LIVE_FILE = path.join(process.cwd(), "live_responses.json");
 
 // Validate required environment variables
 if (!process.env.GEMINI_API_KEY) {
@@ -43,100 +44,8 @@ const PINS = {
   ADMIN: "ORGANIZADOR99"
 };
 
-// Seed Data
-const DEFAULT_RESPONSES = [
-  // Kids (10-12)
-  {
-    id: "k-1",
-    type: "kids",
-    timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
-    name: "Santi",
-    age: "11",
-    spokenToAI: "Sí, uso Siri en el celular de mi mamá y Alexa para pedir música",
-    aiForWhat: ["Dibujar y pintar", "Hacer la tarea", "Crear videojuegos"],
-    curiosityMiedo: "¿Los robots pueden llegar a pensar por sí mismos o tener sentimientos?",
-    excitement: "🤩"
-  },
-  {
-    id: "k-2",
-    type: "kids",
-    timestamp: new Date(Date.now() - 3600000 * 20).toISOString(),
-    name: "Mili",
-    age: "10",
-    spokenToAI: "No lo sé muy bien, creo que sí por TikTok",
-    aiForWhat: ["Crear videojuegos", "Hablar con una mascota virtual"],
-    curiosityMiedo: "Me da miedo que hagan los trabajos de los humanos y mi papá se quede sin trabajo",
-    excitement: "🚀"
-  },
-  {
-    id: "k-3",
-    type: "kids",
-    timestamp: new Date(Date.now() - 3600000 * 16).toISOString(),
-    name: "Benja",
-    age: "12",
-    spokenToAI: "Sí, uso ChatGPT para que me explique cosas de ciencias naturales",
-    aiForWhat: ["Hacer la tarea", "Aprender materias de la escuela"],
-    curiosityMiedo: "¿Cómo aprende una computadora? ¿Le duele la cabeza por procesar tanto?",
-    excitement: "🤩"
-  },
-  // Teens (13-17)
-  {
-    id: "t-1",
-    type: "teens",
-    timestamp: new Date(Date.now() - 3600000 * 18).toISOString(),
-    name: "Valentina",
-    age: "15",
-    usageFreq: "Diariamente para divertirme",
-    aiInterests: ["Creación de imágenes y diseño", "Creación de audios y videos", "Cuestiones éticas y deepfakes"],
-    criticalQuestion: "¿Cómo podemos confiar en lo que vemos en internet si las IA pueden crear videos falsos ultra realistas?",
-    aiPerspective: "Oportunidad positiva"
-  },
-  {
-    id: "t-2",
-    type: "teens",
-    timestamp: new Date(Date.now() - 3600000 * 12).toISOString(),
-    name: "Mateo",
-    age: "17",
-    usageFreq: "Diariamente para la escuela o tareas",
-    aiInterests: ["Programación y código", "Estudio y productividad"],
-    criticalQuestion: "¿La IA va a reemplazar a los programadores junior para cuando yo termine la universidad?",
-    aiPerspective: "Una herramienta tecnológica más"
-  },
-  {
-    id: "t-3",
-    type: "teens",
-    timestamp: new Date(Date.now() - 3600000 * 8).toISOString(),
-    name: "Sofía",
-    age: "14",
-    usageFreq: "Ocasionalmente",
-    aiInterests: ["Cuestiones éticas y deepfakes", "Futuro del trabajo"],
-    criticalQuestion: "Quisiera que debatamos sobre el derecho de autor de las imágenes que usan para entrenar a las IA.",
-    aiPerspective: "Amenaza para la humanidad"
-  },
-  // Teachers
-  {
-    id: "p-1",
-    type: "teachers",
-    timestamp: new Date(Date.now() - 3600000 * 14).toISOString(),
-    name: "Prof. Laura G. (Lengua y Literatura)",
-    subject: "Lengua y Literatura",
-    q1Curriculum: "Me gustaría usar IA para co-diseñar consignas de escritura creativa o analizar estructuras de textos. Puede ser una gran aliada para generar ejemplos de diferentes estilos literarios en segundos.",
-    q2Ethics: "La falta de honestidad académica: que peguen directamente lo que genera la máquina sin procesarlo críticamente. Me gustaría discutir la diferencia entre automatizar versus pensar autónomamente.",
-    q3Challenges: "Observo que muchos adolescentes entregan trabajos totalmente redactados por IA sin haberlos leído. Necesitamos sugerencias sobre cómo evaluar procesos de manera oral o bimodal, y que comprendan el plagio moderno.",
-    suggestions: "Sería fabuloso que les muestre cómo usar prompts interactivos de debate didáctico en vez de solo usarlo para pedirle resúmenes directos."
-  },
-  {
-    id: "p-2",
-    type: "teachers",
-    timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
-    name: "Ing. Carlos D. (Matemáticas y Fisiología)",
-    subject: "Matemática y Física",
-    q1Curriculum: "La IA puede actuar como un tutor personalizado que explica un problema de álgebra con diferentes analogías paso a paso. Facilita la diferenciación en aulas numerosas.",
-    q2Ethics: "El sesgo de confirmación y el riesgo de creer ciegamente en alucinaciones matemáticas. Deben aprender que la IA no es un buscador de verdades infalibles.",
-    q3Challenges: "La dependencia mental fácil: dejan de ejercitar destrezas heurísticas básicas por derivar todo a calculadoras automáticas inteligentes. Queremos que entiendan la IA como un andamio, no como un sustituto intelectual.",
-    suggestions: "Sugiero proponer un ejercicio práctico de identificar errores en una explicación generada por una IA."
-  }
-];
+// Seed Data - Empty by default for production use
+const DEFAULT_RESPONSES: any[] = [];
 
 // Read helper
 function getResponses() {
@@ -175,6 +84,30 @@ function authorizePin(req: express.Request, expectedPin: string | string[]) {
   return pin === expectedPin;
 }
 
+// --- Live Class Interactions State Helpers ---
+const DEFAULT_LIVE_STATE = {
+  activeQuestion: "Ingresa tu respuesta o palabra clave para participar en la clase.",
+  responses: [] as any[]
+};
+
+function getLiveState() {
+  if (!fs.existsSync(LIVE_FILE)) {
+    fs.writeFileSync(LIVE_FILE, JSON.stringify(DEFAULT_LIVE_STATE, null, 2), "utf-8");
+    return DEFAULT_LIVE_STATE;
+  }
+  try {
+    const content = fs.readFileSync(LIVE_FILE, "utf-8");
+    return JSON.parse(content);
+  } catch (err) {
+    console.error("Error reading live data file:", err);
+    return DEFAULT_LIVE_STATE;
+  }
+}
+
+function saveLiveState(state: any) {
+  fs.writeFileSync(LIVE_FILE, JSON.stringify(state, null, 2), "utf-8");
+}
+
 // API Routes
 
 // Retrieve survey results (Admin only)
@@ -183,6 +116,61 @@ app.get("/api/responses", (req, res) => {
     return res.status(403).json({ error: "Acceso no autorizado. PIN incorrecto." });
   }
   res.json(getResponses());
+});
+
+// --- Live Interaction Endpoints ---
+
+// GET: Retrieve current active question & responses list
+app.get("/api/live", (req, res) => {
+  res.json(getLiveState());
+});
+
+// POST: Update active live question (Admin credentials required)
+app.post("/api/live/question", (req, res) => {
+  if (!authorizePin(req, PINS.ADMIN)) {
+    return res.status(403).json({ error: "Acceso no autorizado. PIN incorrecto." });
+  }
+  const { activeQuestion, clearResponses } = req.body;
+  if (!activeQuestion || activeQuestion.trim() === "") {
+    return res.status(400).json({ error: "La pregunta no puede estar vacía." });
+  }
+  const state = getLiveState();
+  state.activeQuestion = activeQuestion;
+  if (clearResponses) {
+    state.responses = [];
+  }
+  saveLiveState(state);
+  res.json({ message: "Pregunta en vivo actualizada.", state });
+});
+
+// POST: Register participant live answer (Anonymous or pseudonymous)
+app.post("/api/live/response", (req, res) => {
+  const { name, role, answer } = req.body;
+  if (!answer || answer.trim() === "") {
+    return res.status(400).json({ error: "La respuesta no puede estar vacía." });
+  }
+  const state = getLiveState();
+  const newResponse = {
+    id: `live-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    name: name && name.trim() !== "" ? name.trim() : "Anónimo",
+    role: role || "Participante",
+    answer: answer.trim(),
+    timestamp: new Date().toISOString()
+  };
+  state.responses.push(newResponse);
+  saveLiveState(state);
+  res.status(201).json({ success: true, response: newResponse });
+});
+
+// DELETE: Empty active responses (Admin credentials required)
+app.delete("/api/live/responses", (req, res) => {
+  if (!authorizePin(req, PINS.ADMIN)) {
+    return res.status(403).json({ error: "Acceso no autorizado. PIN incorrecto." });
+  }
+  const state = getLiveState();
+  state.responses = [];
+  saveLiveState(state);
+  res.json({ message: "Se vaciaron todas las respuestas en vivo.", state });
 });
 
 // Clear survey results or reset (Admin only)
@@ -477,3 +465,4 @@ if (!isProduction) {
     console.log(`Production full-stack server running on http://localhost:${PORT}`);
   });
 }
+
