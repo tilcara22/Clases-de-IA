@@ -56,7 +56,7 @@ export default function RoleSelector({ onSelectRole, appUrl }: RoleSelectorProps
       icon: Settings,
       color: "from-slate-700 to-slate-900",
       accent: "text-slate-800",
-      expectedPin: "ORGANIZADOR89",
+      expectedPin: "ORGANIZADOR99",
       bg: "bg-slate-100"
     }
   };
