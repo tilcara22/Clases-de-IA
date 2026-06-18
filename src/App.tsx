@@ -27,7 +27,7 @@ export default function App() {
         kids: "KIDS10",
         teens: "TEENS13",
         teachers: "DOCENTER7",
-        admin: "ORGANIZADOR89",
+        admin: "ORGANIZADOR99",
         live: "1234"
       };
 
